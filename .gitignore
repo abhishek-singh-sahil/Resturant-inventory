@@ -1,0 +1,23 @@
+# dependencies
+client/node_modules/
+server/node_modules/
+
+# logs
+logs
+*.log
+
+# environment
+.env
+.env.*
+
+# build
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

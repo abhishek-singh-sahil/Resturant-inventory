@@ -1,0 +1,164 @@
+import axios from "axios";
+
+const API = axios.create({
+  baseURL:
+    import.meta.env.VITE_API_URL ||
+    "http://localhost:5000/api",
+
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+API.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+/* ==========================================
+                AUTH
+========================================== */
+
+export const login = (data) =>
+  API.post("/auth/login", data);
+
+export const register = (data) =>
+  API.post("/auth/register", data);
+
+export const getCurrentUser = () =>
+  API.get("/auth/me");
+
+/* ==========================================
+                ITEMS
+========================================== */
+
+export const getItems = () =>
+  API.get("/items");
+
+export const getItem = (id) =>
+  API.get(`/items/${id}`);
+
+export const createItem = (data) =>
+  API.post("/items", data);
+
+export const updateItem = (id, data) =>
+  API.put(`/items/${id}`, data);
+
+export const deleteItem = (id) =>
+  API.delete(`/items/${id}`);
+
+/* ==========================================
+                VENDORS
+========================================== */
+
+export const getVendors = () =>
+  API.get("/vendors");
+
+export const getVendor = (id) =>
+  API.get(`/vendors/${id}`);
+
+export const createVendor = (data) =>
+  API.post("/vendors", data);
+
+export const updateVendor = (id, data) =>
+  API.put(`/vendors/${id}`, data);
+
+export const deleteVendor = (id) =>
+  API.delete(`/vendors/${id}`);
+
+/* ==========================================
+                PURCHASES
+========================================== */
+
+export const getPurchases = () =>
+  API.get("/purchases");
+
+export const getPurchase = (id) =>
+  API.get(`/purchases/${id}`);
+
+export const createPurchase = (data) =>
+  API.post("/purchases", data);
+
+export const updatePurchase = (id, data) =>
+  API.put(`/purchases/${id}`, data);
+
+export const deletePurchase = (id) =>
+  API.delete(`/purchases/${id}`);
+
+/* ==========================================
+            STORE INVENTORY
+========================================== */
+
+export const getStoreItems = () =>
+  API.get("/store");
+
+export const getStoreStock = () =>
+  API.get("/store/stock");
+
+export const transferToKitchen = (data) =>
+  API.post("/store/transfer", data);
+
+/* ==========================================
+          KITCHEN INVENTORY
+========================================== */
+
+export const getKitchenItems = () =>
+  API.get("/kitchen");
+
+export const saveConsumption = (data) =>
+  API.post("/kitchen/consumption", data);
+
+export const getTodayConsumption = () =>
+  API.get("/kitchen/consumption");
+
+/* ==========================================
+               DASHBOARD
+========================================== */
+
+export const getDashboardSummary = () =>
+  API.get("/reports/dashboard-summary");
+
+/* ==========================================
+                REPORTS
+========================================== */
+
+export const getStoreReport = () =>
+  API.get("/reports/store");
+
+export const getKitchenReport = () =>
+  API.get("/reports/kitchen");
+
+export const getPurchaseReport = () =>
+  API.get("/reports/purchase");
+
+export const getTransferReport = () =>
+  API.get("/reports/transfer");
+
+export const getConsumptionReport = () =>
+  API.get("/reports/consumption");
+
+export default API;
