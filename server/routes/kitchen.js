@@ -1,5 +1,5 @@
 import express from "express";
-
+import { ensureTodayInventory } from "../middleware/dayRollover.js";
 import {
   getKitchenItems,
   saveConsumption,
@@ -11,6 +11,7 @@ import { protect } from "../middleware/auth.js";
 const router = express.Router();
 
 router.use(protect);
+router.use(ensureTodayInventory);
 
 // Today's Kitchen Inventory
 router.get("/", getKitchenItems);

@@ -1,4 +1,5 @@
 import express from "express";
+import { ensureTodayInventory } from "../middleware/dayRollover.js";
 import {
   getPurchases,
   getPurchase,
@@ -9,15 +10,16 @@ import {
 import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
+router.use(protect);
+router.use(ensureTodayInventory);
+router.get("/", getPurchases);
 
-router.get("/", protect, getPurchases);
+router.get("/:id", getPurchase);
 
-router.get("/:id", protect, getPurchase);
+router.post("/", createPurchase);
 
-router.post("/", protect, createPurchase);
+router.put("/:id", updatePurchase);
 
-router.put("/:id", protect, updatePurchase);
-
-router.delete("/:id", protect, deletePurchase);
+router.delete("/:id", deletePurchase);
 
 export default router;
