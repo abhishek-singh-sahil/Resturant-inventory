@@ -30,7 +30,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: "https://resturant-inventory.vercel.app/login",
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
     credentials: true,
   })
 );
