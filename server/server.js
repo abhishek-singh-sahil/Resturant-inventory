@@ -30,7 +30,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: "https://resturant-inventory.vercel.app/",
+    origin: "https://resturant-inventory.vercel.app",
     credentials: true,
   })
 );
