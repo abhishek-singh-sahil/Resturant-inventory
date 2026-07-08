@@ -44,150 +44,62 @@ export const getKitchenItems = async (req, res) => {
   }
 };
 
-export const saveConsumption = async (req, res) => {
+export const updateKitchenClosing = async (req, res) => {
   try {
-    const { consumptions } = req.body;
-
-    if (!consumptions || consumptions.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No consumption data received.",
-      });
-    }
+    const { closing } = req.body;
+    const itemId = req.params.id;
 
     const today = getToday();
 
-    for (const data of consumptions) {
-      const inventory = await KitchenInventory.findOne({
-        item: data.itemId,
+    if (
+      closing === undefined ||
+      closing === null ||
+      closing < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid closing value.",
+      });
+    }
+
+    const kitchenInventory =
+      await KitchenInventory.findOne({
+        item: itemId,
         date: today,
       });
 
-      if (!inventory) {
-        return res.status(404).json({
-          success: false,
-          message: "Kitchen inventory not found.",
-        });
-      }
-
-      if (Number(data.quantity) > inventory.closing) {
-        return res.status(400).json({
-          success: false,
-          message: `${inventory.item} does not have sufficient stock.`,
-        });
-      }
-      let remaining = Number(data.quantity);
-
-let purchaseBreakdown = [];
-
-let totalCost = 0;
-
-const purchases = await Purchase.find({
-  item: data.itemId,
-  isDeleted: false,
-  remainingQuantity: { $gt: 0 },
-}).sort({
-  purchaseDate: 1,
-});
-const totalAvailable = purchases.reduce(
-  (sum, purchase) => sum + purchase.remainingQuantity,
-  0
-);
-
-if (totalAvailable < Number(data.quantity)) {
-  return res.status(400).json({
-    success: false,
-    message:
-      "Purchase history is insufficient for FIFO calculation.",
-  });
-}
-
-for (const purchase of purchases) {
-  if (remaining <= 0) break;
-
-  const usedQuantity = Math.min(
-    remaining,
-    purchase.remainingQuantity
-  );
-
-  purchase.remainingQuantity -= usedQuantity;
-
-  const cost = usedQuantity * purchase.rate;
-
-  totalCost += cost;
-
-  purchaseBreakdown.push({
-    purchase: purchase._id,
-    quantity: usedQuantity,
-    rate: purchase.rate,
-    cost,
-  });
-
-  remaining -= usedQuantity;
-
-  await purchase.save();
-}
-if (remaining > 0) {
-  return res.status(400).json({
-    success: false,
-    message:
-      "Purchase history is insufficient for FIFO calculation.",
-  });
-}
-
-const averageRate =
-  totalCost / Number(data.quantity);
-
-await Consumption.create({
-  item: data.itemId,
-  quantity: Number(data.quantity),
-  rate: averageRate,
-  cost: totalCost,
-  purchaseBreakdown,
-  remarks: data.remarks || "",
-  enteredBy: req.user._id,
-});
-
-      inventory.consumed += Number(data.quantity);
-
-      await inventory.save();
+    if (!kitchenInventory) {
+      return res.status(404).json({
+        success: false,
+        message: "Kitchen inventory not found.",
+      });
     }
 
-    res.status(201).json({
-      success: true,
-      message: "Consumption saved successfully.",
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+    const available =
+      kitchenInventory.opening +
+      kitchenInventory.received;
 
-export const getTodayConsumption = async (req, res) => {
-  try {
-    const today = getToday();
-
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-
-    const consumption = await Consumption.find({
-      consumptionDate: {
-        $gte: today,
-        $lt: tomorrow,
-      },
-    })
-      .populate("item", "name unit")
-      .populate("enteredBy", "name")
-      .sort({
-        createdAt: -1,
+    if (closing > available) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Closing cannot exceed available stock.",
       });
+    }
+
+    // Calculate consumed = (opening + received) - closing
+    const consumed = available - closing;
+
+    kitchenInventory.closing = closing;
+    kitchenInventory.consumed = consumed;
+
+    await kitchenInventory.save();
 
     res.status(200).json({
       success: true,
-      count: consumption.length,
-      consumption,
+      message:
+        "Closing weight updated successfully. Consumption calculated automatically.",
+      inventory: kitchenInventory,
     });
   } catch (error) {
     res.status(500).json({

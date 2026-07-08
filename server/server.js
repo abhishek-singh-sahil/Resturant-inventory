@@ -9,6 +9,7 @@ import connectDB from "./config/db.js";
 
 
 import authRoutes from "./routes/auth.js";
+import categoryRoutes from "./routes/category.js";
 import itemRoutes from "./routes/item.js";
 import vendorRoutes from "./routes/vendor.js";
 import purchaseRoutes from "./routes/purchase.js";
@@ -62,6 +63,7 @@ app.get("/", (req, res) => {
 /* -------------------------------------------------------------------------- */
 
 app.use("/api/auth", authRoutes);
+app.use("/api/categories", categoryRoutes);
 app.use("/api/items", itemRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/purchases", purchaseRoutes);

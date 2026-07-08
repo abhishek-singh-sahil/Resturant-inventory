@@ -24,9 +24,9 @@ const itemSchema = new mongoose.Schema(
     },
 
     category: {
-      type: String,
-      default: "Raw Material",
-      trim: true,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      required: true,
     },
 
     lowStockLimit: {

@@ -3,9 +3,7 @@ import { ensureTodayInventory } from "../middleware/dayRollover.js";
 import {
   getStoreItems,
   getStoreStock,
-  transferToKitchen,
-  updateStoreItem,
-  deleteStoreItem,
+  updateStoreClosing,
 } from "../controllers/storeController.js";
 
 import { protect } from "../middleware/auth.js";
@@ -21,13 +19,7 @@ router.get("/", getStoreItems);
 // Store Stock Summary
 router.get("/stock", getStoreStock);
 
-// Transfer Items to Kitchen
-router.post("/transfer", transferToKitchen);
-
-// Update Item
-router.put("/:id", updateStoreItem);
-
-// Archive Item
-router.delete("/:id", deleteStoreItem);
+// Update Closing Weight (Auto-calculates transfer)
+router.put("/:id/closing", updateStoreClosing);
 
 export default router;

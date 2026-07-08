@@ -47,77 +47,85 @@ export const getStoreItems = async (req, res) => {
   }
 };
 
-export const transferToKitchen = async (req, res) => {
+export const updateStoreClosing = async (req, res) => {
   try {
-    const { transfers } = req.body;
-
-    if (!transfers || transfers.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Please select at least one item.",
-      });
-    }
+    const { closing } = req.body;
+    const itemId = req.params.id;
 
     const today = getToday();
 
-    for (const transfer of transfers) {
-      const storeInventory =
-        await StoreInventory.findOne({
-          item: transfer.itemId,
-          date: today,
-        });
+    if (
+      closing === undefined ||
+      closing === null ||
+      closing < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid closing value.",
+      });
+    }
 
-      if (!storeInventory) {
-        return res.status(404).json({
-          success: false,
-          message: "Store inventory not found.",
-        });
-      }
-
-      if (transfer.quantity > storeInventory.closing) {
-        return res.status(400).json({
-          success: false,
-          message: `Insufficient stock for ${storeInventory.item}`,
-        });
-      }
-
-      await Transfer.create({
-        item: transfer.itemId,
-        quantity: transfer.quantity,
-        remarks: transfer.remarks || "",
-        transferredBy: req.user._id,
+    const storeInventory =
+      await StoreInventory.findOne({
+        item: itemId,
+        date: today,
       });
 
-      storeInventory.transferred += Number(
-        transfer.quantity
-      );
+    if (!storeInventory) {
+      return res.status(404).json({
+        success: false,
+        message: "Store inventory not found.",
+      });
+    }
 
-      await storeInventory.save();
+    const available =
+      storeInventory.opening +
+      storeInventory.purchased;
 
-      let kitchenInventory =
-        await KitchenInventory.findOne({
-          item: transfer.itemId,
+    if (closing > available) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Closing cannot exceed available stock.",
+      });
+    }
+
+    // Calculate transferred = (opening + purchased) - closing
+    const transferred =
+      available - closing;
+
+    storeInventory.closing = closing;
+    storeInventory.transferred = transferred;
+
+    await storeInventory.save();
+
+    // Auto-create/update kitchen inventory with the transfer
+    let kitchenInventory =
+      await KitchenInventory.findOne({
+        item: itemId,
+        date: today,
+      });
+
+    if (!kitchenInventory) {
+      kitchenInventory =
+        await KitchenInventory.create({
+          item: itemId,
           date: today,
+          opening: 0,
+          received: transferred,
+          consumed: 0,
         });
-
-      if (!kitchenInventory) {
-        kitchenInventory =
-          await KitchenInventory.create({
-            item: transfer.itemId,
-            date: today,
-          });
-      }
-
-      kitchenInventory.received += Number(
-        transfer.quantity
-      );
-
+    } else {
+      // Update received quantity
+      kitchenInventory.received = transferred;
       await kitchenInventory.save();
     }
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      message: "Transfer completed successfully.",
+      message:
+        "Closing weight updated successfully. Transfer calculated automatically.",
+      inventory: storeInventory,
     });
   } catch (error) {
     res.status(500).json({

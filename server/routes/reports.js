@@ -7,6 +7,8 @@ import {
   getPurchaseReport,
   getTransferReport,
   getConsumptionReport,
+  getPurchaseByCategory,
+  getConsumptionByCategory,
 } from "../controllers/reportsController.js";
 
 import { protect } from "../middleware/auth.js";
@@ -25,5 +27,15 @@ router.get("/kitchen", getKitchenReport);
 router.get("/purchase", getPurchaseReport);
 router.get("/transfer", getTransferReport);
 router.get("/consumption", getConsumptionReport);
+
+// Category-wise Reports
+router.get(
+  "/purchase-by-category",
+  getPurchaseByCategory
+);
+router.get(
+  "/consumption-by-category",
+  getConsumptionByCategory
+);
 
 export default router;

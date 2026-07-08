@@ -1,10 +1,15 @@
 import Item from "../models/Item.js";
+import Category from "../models/Category.js";
 
 export const getItems = async (req, res) => {
   try {
-    const items = await Item.find({ isActive: true }).sort({
-      name: 1,
-    });
+    const items = await Item.find({
+      isActive: true,
+    })
+      .populate("category", "name")
+      .sort({
+        name: 1,
+      });
 
     res.status(200).json({
       success: true,
@@ -21,7 +26,9 @@ export const getItems = async (req, res) => {
 
 export const getItem = async (req, res) => {
   try {
-    const item = await Item.findById(req.params.id);
+    const item = await Item.findById(
+      req.params.id
+    ).populate("category", "name");
 
     if (!item || !item.isActive) {
       return res.status(404).json({
@@ -47,13 +54,25 @@ export const createItem = async (req, res) => {
     const {
       name,
       unit,
+      category,
       lowStockLimit,
     } = req.body;
 
-    if (!name || !unit) {
+    if (!name || !unit || !category) {
       return res.status(400).json({
         success: false,
-        message: "Name and Unit are required.",
+        message:
+          "Name, Unit, and Category are required.",
+      });
+    }
+
+    // Verify category exists
+    const categoryExists =
+      await Category.findById(category);
+    if (!categoryExists) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found.",
       });
     }
 
@@ -71,8 +90,11 @@ export const createItem = async (req, res) => {
     const item = await Item.create({
       name: name.trim(),
       unit,
+      category,
       lowStockLimit,
     });
+
+    await item.populate("category", "name");
 
     res.status(201).json({
       success: true,
@@ -89,6 +111,17 @@ export const createItem = async (req, res) => {
 
 export const updateItem = async (req, res) => {
   try {
+    if (req.body.category) {
+      const categoryExists =
+        await Category.findById(req.body.category);
+      if (!categoryExists) {
+        return res.status(404).json({
+          success: false,
+          message: "Category not found.",
+        });
+      }
+    }
+
     const item = await Item.findByIdAndUpdate(
       req.params.id,
       req.body,
@@ -96,7 +129,7 @@ export const updateItem = async (req, res) => {
         new: true,
         runValidators: true,
       }
-    );
+    ).populate("category", "name");
 
     if (!item) {
       return res.status(404).json({

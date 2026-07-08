@@ -52,6 +52,22 @@ export const getCurrentUser = () =>
   API.get("/auth/me");
 
 /* ==========================================
+              CATEGORIES
+========================================== */
+
+export const getCategories = () =>
+  API.get("/categories");
+
+export const createCategory = (data) =>
+  API.post("/categories", data);
+
+export const updateCategory = (id, data) =>
+  API.put(`/categories/${id}`, data);
+
+export const deleteCategory = (id) =>
+  API.delete(`/categories/${id}`);
+
+/* ==========================================
                 ITEMS
 ========================================== */
 
@@ -118,8 +134,8 @@ export const getStoreItems = () =>
 export const getStoreStock = () =>
   API.get("/store/stock");
 
-export const transferToKitchen = (data) =>
-  API.post("/store/transfer", data);
+export const updateStoreClosing = (itemId, data) =>
+  API.put(`/store/${itemId}/closing`, data);
 
 /* ==========================================
           KITCHEN INVENTORY
@@ -128,11 +144,8 @@ export const transferToKitchen = (data) =>
 export const getKitchenItems = () =>
   API.get("/kitchen");
 
-export const saveConsumption = (data) =>
-  API.post("/kitchen/consumption", data);
-
-export const getTodayConsumption = () =>
-  API.get("/kitchen/consumption");
+export const updateKitchenClosing = (itemId, data) =>
+  API.put(`/kitchen/${itemId}/closing`, data);
 
 /* ==========================================
                DASHBOARD
@@ -147,54 +160,39 @@ export const getDashboardSummary = () =>
 
 ========================================== */
 
-
-
 export const getStoreReport = (date) =>
-
   API.get("/reports/store", {
-
     params: { date },
-
   });
-
-
 
 export const getKitchenReport = (date) =>
-
   API.get("/reports/kitchen", {
-
     params: { date },
-
   });
-
-
 
 export const getPurchaseReport = (date) =>
-
   API.get("/reports/purchase", {
-
     params: { date },
-
   });
-
-
 
 export const getTransferReport = (date) =>
-
   API.get("/reports/transfer", {
-
     params: { date },
-
   });
 
-
-
 export const getConsumptionReport = (date) =>
-
   API.get("/reports/consumption", {
-
     params: { date },
+  });
 
+export const getPurchaseByCategory = (date) =>
+  API.get("/reports/purchase-by-category", {
+    params: { date },
+  });
+
+export const getConsumptionByCategory = (date) =>
+  API.get("/reports/consumption-by-category", {
+    params: { date },
   });
 
 export default API;

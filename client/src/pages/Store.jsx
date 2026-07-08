@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowRight,
   Package,
   Search,
+  Edit2,
+  Check,
+  X,
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 import DataTable from "../components/DataTable";
 
 import {
   getStoreItems,
-  transferToKitchen,
+  updateStoreClosing,
 } from "../services/api";
 
 const Store = () => {
@@ -21,7 +24,9 @@ const Store = () => {
 
   const [search, setSearch] = useState("");
 
-  const [selected, setSelected] = useState({});
+  const [editingId, setEditingId] = useState(null);
+
+  const [editClosing, setEditClosing] = useState("");
 
   const loadInventory = async () => {
     try {
@@ -31,7 +36,7 @@ const Store = () => {
 
       setInventory(data.items || []);
     } catch (err) {
-      alert(
+      toast.error(
         err.response?.data?.message ||
           "Unable to load store inventory."
       );
@@ -52,91 +57,55 @@ const Store = () => {
     );
   }, [inventory, search]);
 
-  const toggleSelect = (id) => {
-    setSelected((prev) => ({
-      ...prev,
-      [id]: prev[id]
-        ? undefined
-        : {
-            quantity: "",
-            remarks: "",
-          },
-    }));
+  const handleEditClosing = (row) => {
+    setEditingId(row._id);
+    setEditClosing(row.closing.toString());
   };
 
-  const updateTransfer = (
-    id,
-    field,
-    value
-  ) => {
-    setSelected((prev) => ({
-      ...prev,
-      [id]: {
-        ...prev[id],
-        [field]: value,
-      },
-    }));
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditClosing("");
   };
 
-  const handleTransfer = async () => {
-    const transfers = Object.entries(
-      selected
-    )
-      .filter(([_, value]) => value)
-      .map(([itemId, value]) => ({
-        itemId,
-        quantity: Number(value.quantity),
-        remarks: value.remarks,
-      }))
-      .filter(
-        (item) =>
-          item.quantity &&
-          item.quantity > 0
-      );
+  const handleSaveClosing = async (itemId, row) => {
+    const newClosing = Number(editClosing);
 
-    if (!transfers.length) {
-      return alert(
-        "Please enter transfer quantity."
+    if (isNaN(newClosing) || newClosing < 0) {
+      toast.error("Invalid closing value.");
+      return;
+    }
+
+    const available = row.opening + row.purchased;
+    if (newClosing > available) {
+      toast.error(
+        `Closing cannot exceed available stock (${available} ${row.unit})`
       );
+      return;
     }
 
     try {
       setSaving(true);
 
-      await transferToKitchen({
-        transfers,
+      await updateStoreClosing(itemId, {
+        closing: newClosing,
       });
 
-      alert(
-        "Items transferred successfully."
-      );
+      toast.success("Closing weight updated successfully.");
 
-      setSelected({});
+      setEditingId(null);
+      setEditClosing("");
 
       loadInventory();
     } catch (err) {
-      alert(
+      toast.error(
         err.response?.data?.message ||
-          "Transfer failed."
+          "Unable to update closing value."
       );
     } finally {
       setSaving(false);
     }
   };
-    const columns = [
-    {
-      key: "select",
-      header: "",
-      render: (row) => (
-        <input
-          type="checkbox"
-          checked={!!selected[row._id]}
-          onChange={() => toggleSelect(row._id)}
-          className="h-5 w-5 accent-[#012A36]"
-        />
-      ),
-    },
-
+  const columns = [
     {
       key: "item",
       header: "Item",
@@ -181,81 +150,88 @@ const Store = () => {
     },
 
     {
-      key: "transfer",
-      header: "Transfer",
-      render: (row) =>
-        selected[row._id] ? (
-          <input
-            type="number"
-            min="0"
-            max={row.closing}
-            value={selected[row._id].quantity}
-            onChange={(e) =>
-              updateTransfer(
-                row._id,
-                "quantity",
-                e.target.value
-              )
-            }
-            className="h-11 w-24 rounded-xl border border-[#d7d7df] px-3 outline-none focus:border-[#012A36]"
-          />
-        ) : (
-          <span className="text-[#b1b1bc]">
-            --
-          </span>
-        ),
-    },
-
-    {
-      key: "closing",
-      header: "Closing",
+      key: "available",
+      header: "Available",
       render: (row) => {
-        const entered =
-          Number(
-            selected[row._id]?.quantity || 0
-          );
-
-        const closing =
-          row.closing - entered;
-
+        const available = row.opening + row.purchased;
         return (
-          <span
-            className={`font-bold ${
-              closing <= row.lowStockLimit
-                ? "text-red-600"
-                : "text-[#012A36]"
-            }`}
-          >
-            {closing < 0 ? 0 : closing}{" "}
-            {row.unit}
+          <span className="font-semibold text-[#012A36]">
+            {available} {row.unit}
           </span>
         );
       },
     },
 
     {
-      key: "remarks",
-      header: "Remarks",
+      key: "closing",
+      header: "Closing (Edit Weight)",
       render: (row) =>
-        selected[row._id] ? (
-          <input
-            type="text"
-            value={selected[row._id].remarks}
-            onChange={(e) =>
-              updateTransfer(
-                row._id,
-                "remarks",
-                e.target.value
-              )
-            }
-            placeholder="Optional"
-            className="h-11 w-48 rounded-xl border border-[#d7d7df] px-3 outline-none focus:border-[#012A36]"
-          />
+        editingId === row._id ? (
+          <div className="flex gap-2">
+            <input
+              type="number"
+              min="0"
+              value={editClosing}
+              onChange={(e) =>
+                setEditClosing(e.target.value)
+              }
+              className="h-11 w-24 rounded-xl border border-[#012A36] px-3 outline-none"
+              disabled={saving}
+            />
+            <button
+              onClick={() =>
+                handleSaveClosing(row._id, row)
+              }
+              disabled={saving}
+              className="rounded-lg bg-green-600 p-2 text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              <Check size={18} />
+            </button>
+            <button
+              onClick={handleCancelEdit}
+              disabled={saving}
+              className="rounded-lg bg-red-600 p-2 text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              <X size={18} />
+            </button>
+          </div>
         ) : (
-          <span className="text-[#b1b1bc]">
-            --
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className={`font-bold ${
+                row.closing <=
+                row.lowStockLimit
+                  ? "text-red-600"
+                  : "text-[#012A36]"
+              }`}
+            >
+              {row.closing} {row.unit}
+            </span>
+            <button
+              onClick={() => handleEditClosing(row)}
+              className="rounded-lg bg-blue-600 p-2 text-white hover:bg-blue-700"
+            >
+              <Edit2 size={16} />
+            </button>
+          </div>
         ),
+    },
+
+    {
+      key: "transfer",
+      header: "Transfer to Kitchen",
+      render: (row) => {
+        const transferred =
+          row.opening +
+          row.purchased -
+          row.closing;
+
+        return (
+          <span className="font-semibold text-orange-600">
+            {Math.max(0, transferred)} {row.unit}
+          </span>
+        );
+      },
     },
   ];
     return (
@@ -271,21 +247,10 @@ const Store = () => {
           </h1>
 
           <p className="mt-2 text-[#747293]">
-            Daily Store Opening, Purchase, Transfer and Closing Stock
+            Record store closing weight by editing the Closing column. Transfer to kitchen is calculated automatically.
           </p>
         </div>
 
-        <button
-          onClick={handleTransfer}
-          disabled={saving}
-          className="flex items-center gap-2 rounded-2xl bg-[#012A36] px-6 py-3 font-semibold text-white transition-all duration-300 hover:bg-[#5F313B] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <ArrowRight size={20} />
-
-          {saving
-            ? "Saving..."
-            : "Transfer to Kitchen"}
-        </button>
       </div>
 
       {/* Summary */}
@@ -324,10 +289,13 @@ const Store = () => {
           </p>
 
           <h2 className="mt-2 text-3xl font-bold text-orange-600">
-            {inventory.reduce(
-              (sum, item) => sum + item.transferred,
-              0
-            )}
+            {inventory.reduce((sum, item) => {
+              const transferred =
+                item.opening +
+                item.purchased -
+                item.closing;
+              return sum + Math.max(0, transferred);
+            }, 0)}
           </h2>
         </div>
 

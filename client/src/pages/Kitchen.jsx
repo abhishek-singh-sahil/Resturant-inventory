@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ChefHat,
-  Save,
   Search,
+  Edit2,
+  Check,
+  X,
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 import DataTable from "../components/DataTable";
 
 import {
   getKitchenItems,
-  saveConsumption,
+  updateKitchenClosing,
 } from "../services/api";
 
 const Kitchen = () => {
@@ -18,8 +21,9 @@ const Kitchen = () => {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
 
-  // Temporary consumption entered by chef
-  const [consumption, setConsumption] = useState({});
+  const [editingId, setEditingId] = useState(null);
+
+  const [editClosing, setEditClosing] = useState("");
 
   const loadKitchen = async () => {
     try {
@@ -29,7 +33,7 @@ const Kitchen = () => {
 
       setInventory(data.items || []);
     } catch (err) {
-      alert(
+      toast.error(
         err.response?.data?.message ||
           "Unable to load kitchen inventory."
       );
@@ -50,59 +54,49 @@ const Kitchen = () => {
     );
   }, [inventory, search]);
 
-  const handleConsumption = (
-    id,
-    field,
-    value
-  ) => {
-    setConsumption((prev) => ({
-      ...prev,
-      [id]: {
-        ...prev[id],
-        [field]: value,
-      },
-    }));
+  const handleEditClosing = (row) => {
+    setEditingId(row._id);
+    setEditClosing(row.closing.toString());
   };
 
-  const handleSave = async () => {
-    const consumptions = Object.entries(consumption)
-      .map(([itemId, value]) => ({
-        itemId,
-        quantity: Number(value.quantity),
-        remarks: value.remarks,
-      }))
-      .filter(
-        (item) =>
-          item.quantity &&
-          item.quantity > 0
-      );
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditClosing("");
+  };
 
-    if (!consumptions.length) {
-      return alert(
-        "Please enter consumption."
+  const handleSaveClosing = async (itemId, row) => {
+    const newClosing = Number(editClosing);
+
+    if (isNaN(newClosing) || newClosing < 0) {
+      toast.error("Invalid closing value.");
+      return;
+    }
+
+    const available = row.opening + row.received;
+    if (newClosing > available) {
+      toast.error(
+        `Closing cannot exceed available stock (${available} ${row.unit})`
       );
+      return;
     }
 
     try {
       setSaving(true);
 
-      await saveConsumption({
-        consumptions,
+      await updateKitchenClosing(itemId, {
+        closing: newClosing,
       });
 
-      // Reload latest kitchen inventory
-      await loadKitchen();
+      toast.success("Closing weight updated successfully.");
 
-      // Clear input boxes for next consumption entry
-      setConsumption({});
+      setEditingId(null);
+      setEditClosing("");
 
-      alert(
-        "Consumption saved successfully."
-      );
+      loadKitchen();
     } catch (err) {
-      alert(
+      toast.error(
         err.response?.data?.message ||
-          "Unable to save consumption."
+          "Unable to update closing value."
       );
     } finally {
       setSaving(false);
@@ -153,90 +147,82 @@ const Kitchen = () => {
       ),
     },
 
-    // NEW ENTRY ONLY
     {
-      key: "consumed",
-      header: "Consume Now",
-      render: (row) => (
-        <input
-          type="number"
-          min="0"
-          max={row.closing}
-          value={
-            consumption[row._id]?.quantity || ""
-          }
-          onChange={(e) =>
-            handleConsumption(
-              row._id,
-              "quantity",
-              e.target.value
-            )
-          }
-          className="h-11 w-24 rounded-xl border border-[#d7d7df] px-3 outline-none focus:border-[#012A36]"
-        />
-      ),
-    },
-
-    // TOTAL CONSUMED TODAY
-    {
-      key: "totalConsumed",
-      header: "Consumed Today",
-      render: (row) => (
-        <span className="font-semibold text-orange-600">
-          {row.consumed} {row.unit}
-        </span>
-      ),
-    },
-
-    {
-      key: "closing",
-      header: "Closing",
+      key: "available",
+      header: "Available",
       render: (row) => {
-        const newConsumption = Number(
-          consumption[row._id]?.quantity || 0
-        );
-
-        const closing =
-          row.opening +
-          row.received -
-          row.consumed -
-          newConsumption;
-
+        const available = row.opening + row.received;
         return (
-          <span
-            className={`font-bold ${
-              closing <= 0
-                ? "text-red-600"
-                : "text-[#012A36]"
-            }`}
-          >
-            {closing < 0 ? 0 : closing}{" "}
-            {row.unit}
+          <span className="font-semibold text-[#012A36]">
+            {available} {row.unit}
           </span>
         );
       },
     },
 
     {
-      key: "remarks",
-      header: "Remarks",
-      render: (row) => (
-        <input
-          type="text"
-          value={
-            consumption[row._id]?.remarks || ""
-          }
-          onChange={(e) =>
-            handleConsumption(
-              row._id,
-              "remarks",
-              e.target.value
-            )
-          }
-          placeholder="Optional"
-          className="h-11 w-56 rounded-xl border border-[#d7d7df] px-3 outline-none focus:border-[#012A36]"
-        />
-      ),
+      key: "closing",
+      header: "Closing (Edit Weight)",
+      render: (row) =>
+        editingId === row._id ? (
+          <div className="flex gap-2">
+            <input
+              type="number"
+              min="0"
+              value={editClosing}
+              onChange={(e) =>
+                setEditClosing(e.target.value)
+              }
+              className="h-11 w-24 rounded-xl border border-[#012A36] px-3 outline-none"
+              disabled={saving}
+            />
+            <button
+              onClick={() =>
+                handleSaveClosing(row._id, row)
+              }
+              disabled={saving}
+              className="rounded-lg bg-green-600 p-2 text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              <Check size={18} />
+            </button>
+            <button
+              onClick={handleCancelEdit}
+              disabled={saving}
+              className="rounded-lg bg-red-600 p-2 text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-bold text-[#012A36]">
+              {row.closing} {row.unit}
+            </span>
+            <button
+              onClick={() => handleEditClosing(row)}
+              className="rounded-lg bg-blue-600 p-2 text-white hover:bg-blue-700"
+            >
+              <Edit2 size={16} />
+            </button>
+          </div>
+        ),
+    },
+
+    {
+      key: "consumed",
+      header: "Consumed Today",
+      render: (row) => {
+        const consumed =
+          row.opening +
+          row.received -
+          row.closing;
+
+        return (
+          <span className="font-semibold text-orange-600">
+            {Math.max(0, consumed)} {row.unit}
+          </span>
+        );
+      },
     },
   ];
     return (
@@ -252,19 +238,9 @@ const Kitchen = () => {
           </h1>
 
           <p className="mt-2 text-[#747293]">
-            Track today's kitchen opening stock, received stock,
-            total consumed and remaining closing stock.
+            Record kitchen closing weight by editing the Closing column. Consumption is calculated automatically.
           </p>
         </div>
-
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 rounded-2xl bg-[#012A36] px-6 py-3 font-semibold text-white transition-all duration-300 hover:bg-[#5F313B] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Save size={20} />
-          {saving ? "Saving..." : "Save Consumption"}
-        </button>
 
       </div>
 
@@ -319,16 +295,12 @@ const Kitchen = () => {
           <h2 className="mt-2 text-3xl font-bold text-orange-600">
 
             {inventory.reduce((sum, row) => {
+              const consumed =
+                row.opening +
+                row.received -
+                row.closing;
 
-              const currentEntry = Number(
-                consumption[row._id]?.quantity || 0
-              );
-
-              return (
-                sum +
-                row.consumed +
-                currentEntry
-              );
+              return sum + Math.max(0, consumed);
 
             }, 0)}
 
@@ -347,19 +319,7 @@ const Kitchen = () => {
           <h2 className="mt-2 text-3xl font-bold text-[#012A36]">
 
             {inventory.reduce((sum, row) => {
-
-              const currentEntry = Number(
-                consumption[row._id]?.quantity || 0
-              );
-
-              const closing =
-                row.opening +
-                row.received -
-                row.consumed -
-                currentEntry;
-
-              return sum + closing;
-
+              return sum + row.closing;
             }, 0)}
 
           </h2>
@@ -401,7 +361,7 @@ const Kitchen = () => {
         emptyMessage={
           loading
             ? "Loading Kitchen Inventory..."
-            : "No Kitchen Items Found."
+            : "No Items Found."
         }
       />
 
