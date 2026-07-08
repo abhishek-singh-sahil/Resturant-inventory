@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import DataTable from "../components/DataTable";
+import DateSelector from "../components/DateSelector";
 
 import {
   getStoreReport,
@@ -56,7 +57,19 @@ const Reports = () => {
   const [search, setSearch] =
     useState("");
 
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] =
+    useState([]);
+
+  const [selectedDate, setSelectedDate] =
+    useState(
+      new Date()
+        .toISOString()
+        .split("T")[0]
+    );
+
+  /* ==========================================
+                LOAD REPORT
+  ========================================== */
 
   const loadReport = async () => {
     try {
@@ -67,35 +80,56 @@ const Reports = () => {
       switch (activeTab) {
         case "store":
           response =
-            await getStoreReport();
-          setRows(response.data.report || []);
+            await getStoreReport(
+              selectedDate
+            );
+
+          setRows(
+            response.data.report || []
+          );
           break;
 
         case "kitchen":
           response =
-            await getKitchenReport();
-          setRows(response.data.report || []);
+            await getKitchenReport(
+              selectedDate
+            );
+
+          setRows(
+            response.data.report || []
+          );
           break;
 
         case "purchase":
           response =
-            await getPurchaseReport();
+            await getPurchaseReport(
+              selectedDate
+            );
+
           setRows(
-            response.data.purchases || []
+            response.data.purchases ||
+              []
           );
           break;
 
         case "transfer":
           response =
-            await getTransferReport();
+            await getTransferReport(
+              selectedDate
+            );
+
           setRows(
-            response.data.transfers || []
+            response.data.transfers ||
+              []
           );
           break;
 
         case "consumption":
           response =
-            await getConsumptionReport();
+            await getConsumptionReport(
+              selectedDate
+            );
+
           setRows(
             response.data.consumptions ||
               []
@@ -117,7 +151,10 @@ const Reports = () => {
 
   useEffect(() => {
     loadReport();
-  }, [activeTab]);
+  }, [activeTab, selectedDate]);
+    /* ==========================================
+                FILTERED DATA
+  ========================================== */
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
@@ -132,8 +169,86 @@ const Reports = () => {
     });
   }, [rows, search]);
 
+  /* ==========================================
+                  TOTALS
+  ========================================== */
+
+  const purchaseTotal = useMemo(() => {
+    return filteredRows.reduce(
+      (sum, row) =>
+        sum +
+        Number(row.totalAmount || 0),
+      0
+    );
+  }, [filteredRows]);
+
+  const consumptionTotal =
+    useMemo(() => {
+      return filteredRows.reduce(
+        (sum, row) =>
+          sum +
+          Number(row.cost || 0),
+        0
+      );
+    }, [filteredRows]);
+
+  /* ==========================================
+                TABLE DATA
+  ========================================== */
+
+  const tableData = useMemo(() => {
+    const data = [...filteredRows];
+
+    if (activeTab === "purchase") {
+      data.push({
+        isTotal: true,
+        item: {
+          name: "TOTAL",
+        },
+      });
+    }
+
+    if (
+      activeTab ===
+      "consumption"
+    ) {
+      data.push({
+        isTotal: true,
+        item: {
+          name: "TOTAL",
+        },
+      });
+    }
+
+    return data;
+  }, [
+    filteredRows,
+    activeTab,
+  ]);
+
+  /* ==========================================
+                FORMAT TIME
+  ========================================== */
+
+  const formatTime = (date) => {
+    if (!date) return "-";
+
+    return new Date(date).toLocaleTimeString(
+      "en-IN",
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      }
+    );
+  };
+
+  /* ==========================================
+                COLUMNS
+  ========================================== */
+
   const columns = useMemo(() => {
     switch (activeTab) {
+
       case "store":
         return [
           {
@@ -192,25 +307,74 @@ const Reports = () => {
             key: "item",
             header: "Item",
             render: (row) =>
-              row.item?.name,
+              row.isTotal ? (
+                <span className="font-bold text-[#012A36]">
+                  TOTAL
+                </span>
+              ) : (
+                row.item?.name
+              ),
           },
           {
             key: "vendor",
             header: "Vendor",
             render: (row) =>
-              row.vendor?.name,
+              row.isTotal
+                ? "-"
+                : row.vendor?.name,
           },
           {
             key: "quantity",
-            header: "Quantity",
+            header: "Qty",
+            render: (row) =>
+              row.isTotal
+                ? "-"
+                : row.quantity,
           },
           {
             key: "rate",
             header: "Rate",
+            render: (row) =>
+              row.isTotal
+                ? "-"
+                : `₹${Number(
+                    row.rate || 0
+                  ).toFixed(2)}`,
           },
           {
             key: "totalAmount",
             header: "Amount",
+            render: (row) =>
+              row.isTotal ? (
+                <span className="font-bold text-green-700">
+                  ₹
+                  {purchaseTotal.toLocaleString(
+                    "en-IN",
+                    {
+                      minimumFractionDigits: 2,
+                    }
+                  )}
+                </span>
+              ) : (
+                `₹${Number(
+                  row.totalAmount || 0
+                ).toLocaleString(
+                  "en-IN",
+                  {
+                    minimumFractionDigits: 2,
+                  }
+                )}`
+              ),
+          },
+          {
+            key: "time",
+            header: "Time",
+            render: (row) =>
+              row.isTotal
+                ? "-"
+                : formatTime(
+                    row.purchaseDate
+                  ),
           },
         ];
 
@@ -230,6 +394,14 @@ const Reports = () => {
             key: "remarks",
             header: "Remarks",
           },
+          {
+            key: "time",
+            header: "Time",
+            render: (row) =>
+              formatTime(
+                row.transferDate
+              ),
+          },
         ];
 
       case "consumption":
@@ -238,38 +410,106 @@ const Reports = () => {
             key: "item",
             header: "Item",
             render: (row) =>
-              row.item?.name,
+              row.isTotal ? (
+                <span className="font-bold text-[#012A36]">
+                  TOTAL
+                </span>
+              ) : (
+                row.item?.name
+              ),
           },
           {
             key: "quantity",
-            header: "Consumed",
+            header: "Qty",
+            render: (row) =>
+              row.isTotal
+                ? "-"
+                : row.quantity,
+          },
+          {
+            key: "rate",
+            header: "Rate",
+            render: (row) =>
+              row.isTotal
+                ? "-"
+                : `₹${Number(
+                    row.rate || 0
+                  ).toFixed(2)}`,
+          },
+          {
+            key: "cost",
+            header: "Cost",
+            render: (row) =>
+              row.isTotal ? (
+                <span className="font-bold text-green-700">
+                  ₹
+                  {consumptionTotal.toLocaleString(
+                    "en-IN",
+                    {
+                      minimumFractionDigits: 2,
+                    }
+                  )}
+                </span>
+              ) : (
+                `₹${Number(
+                  row.cost || 0
+                ).toLocaleString(
+                  "en-IN",
+                  {
+                    minimumFractionDigits: 2,
+                  }
+                )}`
+              ),
           },
           {
             key: "remarks",
             header: "Remarks",
+            render: (row) =>
+              row.isTotal
+                ? "-"
+                : row.remarks,
+          },
+          {
+            key: "time",
+            header: "Time",
+            render: (row) =>
+              row.isTotal
+                ? "-"
+                : formatTime(
+                    row.consumptionDate
+                  ),
           },
         ];
 
       default:
         return [];
     }
-  }, [activeTab]);
+  }, [
+    activeTab,
+    purchaseTotal,
+    consumptionTotal,
+  ]);
     return (
-    <div className="space-y-8">
+    <div className="space-y-6 lg:space-y-8">
 
-      {/* Header */}
+      {/* ===================== HEADER ===================== */}
 
-      <div>
-        <h1 className="text-3xl font-bold text-[#012A36]">
-          Reports
-        </h1>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
-        <p className="mt-2 text-[#747293]">
-          View Store, Kitchen, Purchase, Transfer and Consumption Reports.
-        </p>
+        <div>
+          <h1 className="text-2xl font-bold text-[#012A36] sm:text-3xl">
+            Reports
+          </h1>
+
+          <p className="mt-2 text-sm text-[#747293] sm:text-base">
+            View Store, Kitchen, Purchase,
+            Transfer and Consumption Reports.
+          </p>
+        </div>
+
       </div>
 
-      {/* Tabs */}
+      {/* ===================== TABS ===================== */}
 
       <div className="overflow-x-auto rounded-3xl border border-[#E5E7EB] bg-white p-2 shadow-sm">
 
@@ -280,20 +520,28 @@ const Reports = () => {
             const Icon = tab.icon;
 
             return (
+
               <button
                 key={tab.id}
-                onClick={() =>
-                  setActiveTab(tab.id)
-                }
-                className={`flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition-all duration-300 ${
+                onClick={() => {
+                  setSearch("");
+                  setActiveTab(tab.id);
+                }}
+                className={`flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-all duration-300 lg:px-5 ${
                   activeTab === tab.id
-                    ? "bg-[#012A36] text-white"
+                    ? "bg-[#012A36] text-white shadow-md"
                     : "text-[#012A36] hover:bg-[#F4F6F8]"
                 }`}
               >
+
                 <Icon size={18} />
-                {tab.label}
+
+                <span className="whitespace-nowrap">
+                  {tab.label}
+                </span>
+
               </button>
+
             );
 
           })}
@@ -302,9 +550,28 @@ const Reports = () => {
 
       </div>
 
-      {/* Search */}
+      {/* ===================== DATE SELECTOR ===================== */}
 
-      <div className="rounded-3xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+      {[
+        "purchase",
+        "transfer",
+        "consumption",
+      ].includes(activeTab) && (
+
+        <div className="rounded-3xl border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
+
+          <DateSelector
+            selectedDate={selectedDate}
+            onChange={setSelectedDate}
+          />
+
+        </div>
+
+      )}
+
+      {/* ===================== SEARCH ===================== */}
+
+      <div className="rounded-3xl border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
 
         <div className="relative">
 
@@ -320,18 +587,18 @@ const Reports = () => {
             onChange={(e) =>
               setSearch(e.target.value)
             }
-            className="h-12 w-full rounded-2xl border border-[#D7D7DF] pl-12 pr-4 outline-none focus:border-[#012A36]"
+            className="h-12 w-full rounded-2xl border border-[#D7D7DF] pl-12 pr-4 text-sm outline-none transition-all duration-300 focus:border-[#012A36] sm:text-base"
           />
 
         </div>
 
       </div>
 
-      {/* Table */}
+      {/* ===================== TABLE ===================== */}
 
       <DataTable
         columns={columns}
-        data={filteredRows}
+        data={tableData}
         emptyMessage={
           loading
             ? "Loading Report..."

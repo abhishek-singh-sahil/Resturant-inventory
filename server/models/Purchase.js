@@ -20,6 +20,13 @@ const purchaseSchema = new mongoose.Schema(
       min: 0.001,
     },
 
+    // Quantity still available for FIFO consumption
+    remainingQuantity: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
     rate: {
       type: Number,
       required: true,
@@ -65,9 +72,19 @@ const purchaseSchema = new mongoose.Schema(
   }
 );
 
+// Useful indexes
 purchaseSchema.index({
   purchaseDate: 1,
   item: 1,
 });
 
-export default mongoose.model("Purchase", purchaseSchema);
+purchaseSchema.index({
+  item: 1,
+  remainingQuantity: 1,
+  purchaseDate: 1,
+});
+
+export default mongoose.model(
+  "Purchase",
+  purchaseSchema
+);

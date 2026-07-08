@@ -14,6 +14,46 @@ const consumptionSchema = new mongoose.Schema(
       min: 0.001,
     },
 
+    // Actual FIFO rate used for this consumption
+    rate: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+
+    // Actual FIFO cost
+    cost: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+
+    // FIFO purchase history
+    purchaseBreakdown: [
+      {
+        purchase: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Purchase",
+          required: true,
+        },
+
+        quantity: {
+          type: Number,
+          required: true,
+        },
+
+        rate: {
+          type: Number,
+          required: true,
+        },
+
+        cost: {
+          type: Number,
+          required: true,
+        },
+      },
+    ],
+
     consumptionDate: {
       type: Date,
       required: true,

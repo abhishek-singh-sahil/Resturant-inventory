@@ -1,6 +1,6 @@
 import KitchenInventory from "../models/KitchenInventory.js";
 import Consumption from "../models/Consumption.js";
-
+import Purchase from "../models/Purchase.js";
 const getToday = () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -76,13 +76,77 @@ export const saveConsumption = async (req, res) => {
           message: `${inventory.item} does not have sufficient stock.`,
         });
       }
+      let remaining = Number(data.quantity);
 
-      await Consumption.create({
-        item: data.itemId,
-        quantity: Number(data.quantity),
-        remarks: data.remarks || "",
-        enteredBy: req.user._id,
-      });
+let purchaseBreakdown = [];
+
+let totalCost = 0;
+
+const purchases = await Purchase.find({
+  item: data.itemId,
+  isDeleted: false,
+  remainingQuantity: { $gt: 0 },
+}).sort({
+  purchaseDate: 1,
+});
+const totalAvailable = purchases.reduce(
+  (sum, purchase) => sum + purchase.remainingQuantity,
+  0
+);
+
+if (totalAvailable < Number(data.quantity)) {
+  return res.status(400).json({
+    success: false,
+    message:
+      "Purchase history is insufficient for FIFO calculation.",
+  });
+}
+
+for (const purchase of purchases) {
+  if (remaining <= 0) break;
+
+  const usedQuantity = Math.min(
+    remaining,
+    purchase.remainingQuantity
+  );
+
+  purchase.remainingQuantity -= usedQuantity;
+
+  const cost = usedQuantity * purchase.rate;
+
+  totalCost += cost;
+
+  purchaseBreakdown.push({
+    purchase: purchase._id,
+    quantity: usedQuantity,
+    rate: purchase.rate,
+    cost,
+  });
+
+  remaining -= usedQuantity;
+
+  await purchase.save();
+}
+if (remaining > 0) {
+  return res.status(400).json({
+    success: false,
+    message:
+      "Purchase history is insufficient for FIFO calculation.",
+  });
+}
+
+const averageRate =
+  totalCost / Number(data.quantity);
+
+await Consumption.create({
+  item: data.itemId,
+  quantity: Number(data.quantity),
+  rate: averageRate,
+  cost: totalCost,
+  purchaseBreakdown,
+  remarks: data.remarks || "",
+  enteredBy: req.user._id,
+});
 
       inventory.consumed += Number(data.quantity);
 

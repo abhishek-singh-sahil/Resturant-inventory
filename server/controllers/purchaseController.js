@@ -37,16 +37,17 @@ export const createPurchase = async (req, res) => {
     }
 
     const purchase = await Purchase.create({
-      item,
-      vendor,
-      quantity,
-      rate,
-      totalAmount: quantity * rate,
-      invoiceNo,
-      purchaseDate,
-      remarks,
-      createdBy: req.user._id,
-    });
+  item,
+  vendor,
+  quantity,
+  remainingQuantity: quantity,
+  rate,
+  totalAmount: quantity * rate,
+  invoiceNo,
+  purchaseDate,
+  remarks,
+  createdBy: req.user._id,
+});
 
     const today = getToday();
 
@@ -148,6 +149,13 @@ export const updatePurchase = async (req, res) => {
         message: "Purchase not found.",
       });
     }
+    if (purchase.remainingQuantity < purchase.quantity) {
+  return res.status(400).json({
+    success: false,
+    message:
+      "This purchase has already been consumed and cannot be edited.",
+  });
+}
 
     const oldQuantity = purchase.quantity;
 
@@ -199,6 +207,13 @@ export const deletePurchase = async (req, res) => {
         message: "Purchase not found.",
       });
     }
+    if (purchase.remainingQuantity < purchase.quantity) {
+  return res.status(400).json({
+    success: false,
+    message:
+      "This purchase has already been consumed and cannot be deleted.",
+  });
+}
 
     purchase.isDeleted = true;
 

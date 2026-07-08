@@ -142,22 +142,59 @@ export const getDashboardSummary = () =>
   API.get("/reports/dashboard-summary");
 
 /* ==========================================
+
                 REPORTS
+
 ========================================== */
 
-export const getStoreReport = () =>
-  API.get("/reports/store");
 
-export const getKitchenReport = () =>
-  API.get("/reports/kitchen");
 
-export const getPurchaseReport = () =>
-  API.get("/reports/purchase");
+export const getStoreReport = (date) =>
 
-export const getTransferReport = () =>
-  API.get("/reports/transfer");
+  API.get("/reports/store", {
 
-export const getConsumptionReport = () =>
-  API.get("/reports/consumption");
+    params: { date },
+
+  });
+
+
+
+export const getKitchenReport = (date) =>
+
+  API.get("/reports/kitchen", {
+
+    params: { date },
+
+  });
+
+
+
+export const getPurchaseReport = (date) =>
+
+  API.get("/reports/purchase", {
+
+    params: { date },
+
+  });
+
+
+
+export const getTransferReport = (date) =>
+
+  API.get("/reports/transfer", {
+
+    params: { date },
+
+  });
+
+
+
+export const getConsumptionReport = (date) =>
+
+  API.get("/reports/consumption", {
+
+    params: { date },
+
+  });
 
 export default API;

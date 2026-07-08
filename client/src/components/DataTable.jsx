@@ -25,12 +25,20 @@ const DataTable = ({
               data.map((row, index) => (
                 <tr
                   key={index}
-                  className="border-b border-[#e3e3e9] transition hover:bg-[#FAF5EF]"
+                  className={`border-b border-[#e3e3e9] transition ${
+                    row.isTotal
+                      ? "bg-[#FFF8E1] font-bold"
+                      : "hover:bg-[#FAF5EF]"
+                  }`}
                 >
                   {columns.map((column) => (
                     <td
                       key={column.key}
-                      className="whitespace-nowrap px-5 py-4 text-sm text-[#5F313B]"
+                      className={`whitespace-nowrap px-5 py-4 text-sm ${
+                        row.isTotal
+                          ? "font-bold text-[#012A36]"
+                          : "text-[#5F313B]"
+                      }`}
                     >
                       {column.render
                         ? column.render(row)
