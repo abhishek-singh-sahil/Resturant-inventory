@@ -160,23 +160,29 @@ export const performDayRollover = async (
     }
   }
 
-  settings.currentBusinessDate =
-    tomorrow;
+  settings.previousBusinessDate =
+  settings.currentBusinessDate;
 
-  settings.lastRolloverAt =
-    new Date();
+settings.currentBusinessDate =
+  tomorrow;
 
-  settings.lastRolloverBy =
-    adminId;
+settings.lastRolloverAt =
+  new Date();
+
+settings.lastRolloverBy =
+  adminId;
 
   await settings.save();
 
   return {
-    success: true,
-    message:
-      "Business day changed successfully.",
-    businessDate: tomorrow,
-  };
+  success: true,
+  message:
+    "Business day changed successfully.",
+
+  businessDate: tomorrow,
+
+  previousBusinessDate: today,
+};
 };
 
 /* -------------------------------------------------------------------------- */

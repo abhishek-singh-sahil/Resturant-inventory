@@ -7,6 +7,11 @@ const systemSettingsSchema = new mongoose.Schema(
       required: true,
     },
 
+    previousBusinessDate: {
+    type: Date,
+    default: null,
+  },
+  
     lastRolloverAt: {
       type: Date,
       default: null,

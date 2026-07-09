@@ -31,7 +31,11 @@ const Dashboard = () => {
     useState(false);
 const {
   businessDate,
+
+  previousBusinessDate,
+
   lastRolloverAt,
+
   refreshBusinessDay,
 } = useBusinessDay();
 
@@ -123,16 +127,20 @@ setModalOpen(false);
           <div className="xl:col-span-2">
 
             <BusinessDayCard
-              businessDate={businessDate}
-              lastRolloverAt={
-                lastRolloverAt
-              }
-              loading={loading}
-              rolling={rolling}
-              onNextDay={() =>
-                setModalOpen(true)
-              }
-            />
+  businessDate={businessDate}
+
+  previousBusinessDate={
+    previousBusinessDate
+  }
+
+  loading={loading}
+
+  rolling={rolling}
+
+  onNextDay={() =>
+    setModalOpen(true)
+  }
+/>
 
           </div>
 

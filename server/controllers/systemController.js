@@ -15,12 +15,16 @@ export const getCurrentBusinessDay =
         await initializeSystemSettings();
 
       res.status(200).json({
-        success: true,
-        currentBusinessDate:
-          settings.currentBusinessDate,
-        lastRolloverAt:
-          settings.lastRolloverAt,
-      });
+  success: true,
+  currentBusinessDate:
+    settings.currentBusinessDate,
+
+  previousBusinessDate:
+    settings.previousBusinessDate,
+
+  lastRolloverAt:
+    settings.lastRolloverAt,
+});
     } catch (error) {
       console.error(error);
 
@@ -48,7 +52,10 @@ export const rolloverBusinessDay =
         success: true,
         message: result.message,
         currentBusinessDate:
-          result.businessDate,
+  result.businessDate,
+
+previousBusinessDate:
+  result.previousBusinessDate,
       });
     } catch (error) {
       console.error(error);

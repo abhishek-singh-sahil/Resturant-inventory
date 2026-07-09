@@ -24,7 +24,13 @@ try {
     },
     {
       name: "Store Staff",
-      email: "staff@gmail.com",
+      email: "staff1@gmail.com",
+      password,
+      role: "staff",
+    },
+    {
+      name: "Store Staff",
+      email: "staff2@gmail.com",
       password,
       role: "staff",
     },

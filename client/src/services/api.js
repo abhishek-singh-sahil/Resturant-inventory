@@ -50,6 +50,9 @@ export const register = (data) =>
 export const getCurrentUser = () =>
   API.get("/auth/me");
 
+export const changePassword = (data) =>
+  API.put("/auth/change-password", data);
+
 /* ==========================================
               CATEGORIES
 ========================================== */
