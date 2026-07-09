@@ -16,12 +16,11 @@ import purchaseRoutes from "./routes/purchase.js";
 import storeRoutes from "./routes/store.js";
 import kitchenRoutes from "./routes/kitchen.js";
 import reportRoutes from "./routes/reports.js";
-
+import systemRoutes from "./routes/system.js";
 dotenv.config();
 
 await connectDB();
-// Automatically starts the scheduler
-await import("./services/dayScheduler.js");
+
 
 const app = express();
 
@@ -70,6 +69,7 @@ app.use("/api/purchases", purchaseRoutes);
 app.use("/api/store", storeRoutes);
 app.use("/api/kitchen", kitchenRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/system", systemRoutes);
 
 /* -------------------------------------------------------------------------- */
 /*                                404 HANDLER                                 */

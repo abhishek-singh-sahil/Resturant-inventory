@@ -1,42 +1,48 @@
 import { CalendarDays } from "lucide-react";
 import { useMemo, useRef } from "react";
 
-const DateSelector = ({ selectedDate, onChange }) => {
+const DateSelector = ({
+  selectedDate,
+  onChange,
+}) => {
   const inputRef = useRef(null);
+
+  const businessDate = useMemo(() => {
+    if (!selectedDate) return new Date();
+
+    return new Date(selectedDate);
+  }, [selectedDate]);
 
   const dates = useMemo(() => {
     const list = [];
 
     for (let i = 0; i < 5; i++) {
-      const date = new Date();
+      const date = new Date(businessDate);
+
       date.setDate(date.getDate() - i);
 
       list.push(date);
     }
 
     return list;
-  }, []);
+  }, [businessDate]);
 
-  const formatValue = (date) => {
-    return date.toISOString().split("T")[0];
-  };
+  const formatValue = (date) =>
+    date.toISOString().split("T")[0];
 
-  const formatDay = (date) => {
-    return date.toLocaleDateString("en-IN", {
+  const formatDay = (date) =>
+    date.toLocaleDateString("en-IN", {
       day: "numeric",
       month: "short",
     });
-  };
 
-  const formatWeekday = (date) => {
-    return date.toLocaleDateString("en-IN", {
+  const formatWeekday = (date) =>
+    date.toLocaleDateString("en-IN", {
       weekday: "short",
     });
-  };
 
-  const isToday = (date) => {
-    return formatValue(date) === formatValue(new Date());
-  };
+  const isBusinessDay = (date) =>
+    formatValue(date) === selectedDate;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -44,12 +50,15 @@ const DateSelector = ({ selectedDate, onChange }) => {
       {dates.map((date) => {
         const value = formatValue(date);
 
-        const active = value === selectedDate;
+        const active =
+          value === selectedDate;
 
         return (
           <button
             key={value}
-            onClick={() => onChange(value)}
+            onClick={() =>
+              onChange(value)
+            }
             className={`min-w-[82px] rounded-xl border px-4 py-3 transition-all ${
               active
                 ? "border-[#0A3A4A] bg-[#E8F4F8] text-[#0A3A4A] shadow-sm"
@@ -61,7 +70,7 @@ const DateSelector = ({ selectedDate, onChange }) => {
             </div>
 
             <div className="text-sm text-gray-500">
-              {isToday(date)
+              {isBusinessDay(date)
                 ? "Today"
                 : formatWeekday(date)}
             </div>
@@ -70,7 +79,9 @@ const DateSelector = ({ selectedDate, onChange }) => {
       })}
 
       <button
-        onClick={() => inputRef.current?.showPicker()}
+        onClick={() =>
+          inputRef.current?.showPicker()
+        }
         className="flex min-w-[90px] flex-col items-center justify-center rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 hover:bg-[#F8F8F8]"
       >
         <CalendarDays
@@ -92,6 +103,7 @@ const DateSelector = ({ selectedDate, onChange }) => {
         }
         className="hidden"
       />
+
     </div>
   );
 };

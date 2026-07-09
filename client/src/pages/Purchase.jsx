@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useBusinessDay } from "../context/BusinessDayContext";
+import { toBusinessDateString } from "../utils/date";
 import {
   Plus,
   Pencil,
@@ -19,17 +21,20 @@ import {
   getVendors,
 } from "../services/api";
 
-const initialForm = {
+const Purchase = () => {
+  const { businessDate } = useBusinessDay();
+
+const getInitialForm = () => ({
   item: "",
   vendor: "",
   quantity: "",
   rate: "",
   invoiceNo: "",
-  purchaseDate: new Date().toISOString().split("T")[0],
+  purchaseDate: businessDate
+    ? toBusinessDateString(businessDate)
+    : "",
   remarks: "",
-};
-
-const Purchase = () => {
+});
   const [purchases, setPurchases] = useState([]);
   const [items, setItems] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -43,7 +48,9 @@ const Purchase = () => {
 
   const [editingId, setEditingId] = useState(null);
 
-  const [formData, setFormData] = useState(initialForm);
+  const [formData, setFormData] = useState(
+  getInitialForm()
+);
 
   const loadData = async () => {
     try {
@@ -69,6 +76,16 @@ const Purchase = () => {
   useEffect(() => {
     loadData();
   }, []);
+  useEffect(() => {
+  if (!editingId) {
+    setFormData((prev) => ({
+      ...prev,
+      purchaseDate: businessDate
+        ? toBusinessDateString(businessDate)
+        : "",
+    }));
+  }
+}, [businessDate, editingId]);
 
   const filteredPurchases = useMemo(() => {
     return purchases.filter((purchase) =>
@@ -87,7 +104,7 @@ const Purchase = () => {
 
   const openAddModal = () => {
     setEditingId(null);
-    setFormData(initialForm);
+    setFormData(getInitialForm());
     setModalOpen(true);
   };
 
@@ -109,7 +126,7 @@ const Purchase = () => {
 
   const closeModal = () => {
     setEditingId(null);
-    setFormData(initialForm);
+    setFormData(getInitialForm());
     setModalOpen(false);
   };
 

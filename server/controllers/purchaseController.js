@@ -1,12 +1,11 @@
 import Purchase from "../models/Purchase.js";
 import Item from "../models/Item.js";
 import StoreInventory from "../models/StoreInventory.js";
+import { getBusinessDate } from "../utils/businessDate.js";
 
-const getToday = () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-};
+/* -------------------------------------------------------------------------- */
+/*                              CREATE PURCHASE                               */
+/* -------------------------------------------------------------------------- */
 
 export const createPurchase = async (req, res) => {
   try {
@@ -37,29 +36,32 @@ export const createPurchase = async (req, res) => {
     }
 
     const purchase = await Purchase.create({
-  item,
-  vendor,
-  quantity,
-  remainingQuantity: quantity,
-  rate,
-  totalAmount: quantity * rate,
-  invoiceNo,
-  purchaseDate,
-  remarks,
-  createdBy: req.user._id,
-});
+      item,
+      vendor,
+      quantity,
+      remainingQuantity: quantity,
+      rate,
+      totalAmount: quantity * rate,
+      invoiceNo,
+      purchaseDate,
+      remarks,
+      createdBy: req.user._id,
+    });
 
-    const today = getToday();
+    const businessDate = await getBusinessDate();
 
     let inventory = await StoreInventory.findOne({
       item,
-      date: today,
+      date: businessDate,
     });
 
     if (!inventory) {
       inventory = await StoreInventory.create({
         item,
-        date: today,
+        date: businessDate,
+        opening: 0,
+        purchased: 0,
+        transferred: 0,
       });
     }
 
@@ -73,16 +75,18 @@ export const createPurchase = async (req, res) => {
       purchase,
     });
   } catch (error) {
-  console.error("========== PURCHASE ERROR ==========");
-  console.error(error);
-  console.error(error.stack);
+    console.error(error);
 
-  res.status(500).json({
-    success: false,
-    message: error.message,
-  });
-}
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
+
+/* -------------------------------------------------------------------------- */
+/*                              GET PURCHASES                                 */
+/* -------------------------------------------------------------------------- */
 
 export const getPurchases = async (req, res) => {
   try {
@@ -108,6 +112,10 @@ export const getPurchases = async (req, res) => {
     });
   }
 };
+
+/* -------------------------------------------------------------------------- */
+/*                              GET PURCHASE                                  */
+/* -------------------------------------------------------------------------- */
 
 export const getPurchase = async (req, res) => {
   try {
@@ -137,6 +145,10 @@ export const getPurchase = async (req, res) => {
   }
 };
 
+/* -------------------------------------------------------------------------- */
+/*                            UPDATE PURCHASE                                 */
+/* -------------------------------------------------------------------------- */
+
 export const updatePurchase = async (req, res) => {
   try {
     const purchase = await Purchase.findById(
@@ -149,13 +161,17 @@ export const updatePurchase = async (req, res) => {
         message: "Purchase not found.",
       });
     }
-    if (purchase.remainingQuantity < purchase.quantity) {
-  return res.status(400).json({
-    success: false,
-    message:
-      "This purchase has already been consumed and cannot be edited.",
-  });
-}
+
+    if (
+      purchase.remainingQuantity <
+      purchase.quantity
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This purchase has already been consumed and cannot be edited.",
+      });
+    }
 
     const oldQuantity = purchase.quantity;
 
@@ -166,12 +182,14 @@ export const updatePurchase = async (req, res) => {
 
     await purchase.save();
 
-    const today = getToday();
+    const businessDate =
+      await getBusinessDate();
 
-    const inventory = await StoreInventory.findOne({
-      item: purchase.item,
-      date: today,
-    });
+    const inventory =
+      await StoreInventory.findOne({
+        item: purchase.item,
+        date: businessDate,
+      });
 
     if (inventory) {
       inventory.purchased =
@@ -195,6 +213,10 @@ export const updatePurchase = async (req, res) => {
   }
 };
 
+/* -------------------------------------------------------------------------- */
+/*                            DELETE PURCHASE                                 */
+/* -------------------------------------------------------------------------- */
+
 export const deletePurchase = async (req, res) => {
   try {
     const purchase = await Purchase.findById(
@@ -207,24 +229,30 @@ export const deletePurchase = async (req, res) => {
         message: "Purchase not found.",
       });
     }
-    if (purchase.remainingQuantity < purchase.quantity) {
-  return res.status(400).json({
-    success: false,
-    message:
-      "This purchase has already been consumed and cannot be deleted.",
-  });
-}
+
+    if (
+      purchase.remainingQuantity <
+      purchase.quantity
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This purchase has already been consumed and cannot be deleted.",
+      });
+    }
 
     purchase.isDeleted = true;
 
     await purchase.save();
 
-    const today = getToday();
+    const businessDate =
+      await getBusinessDate();
 
-    const inventory = await StoreInventory.findOne({
-      item: purchase.item,
-      date: today,
-    });
+    const inventory =
+      await StoreInventory.findOne({
+        item: purchase.item,
+        date: businessDate,
+      });
 
     if (inventory) {
       inventory.purchased -= purchase.quantity;
@@ -238,7 +266,8 @@ export const deletePurchase = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Purchase archived successfully.",
+      message:
+        "Purchase archived successfully.",
     });
   } catch (error) {
     res.status(500).json({

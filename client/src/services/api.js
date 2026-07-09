@@ -1,8 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL:
-    "https://resturant-inventory.onrender.com/api",
+  baseURL: "https://resturant-inventory.onrender.com/api",
 
   headers: {
     "Content-Type": "application/json",
@@ -148,6 +147,16 @@ export const updateKitchenClosing = (itemId, data) =>
   API.put(`/kitchen/${itemId}/closing`, data);
 
 /* ==========================================
+             BUSINESS DAY
+========================================== */
+
+export const getCurrentBusinessDay = () =>
+  API.get("/system/day");
+
+export const rolloverBusinessDay = () =>
+  API.post("/system/rollover");
+
+/* ==========================================
                DASHBOARD
 ========================================== */
 
@@ -155,9 +164,7 @@ export const getDashboardSummary = () =>
   API.get("/reports/dashboard-summary");
 
 /* ==========================================
-
                 REPORTS
-
 ========================================== */
 
 export const getStoreReport = (date) =>

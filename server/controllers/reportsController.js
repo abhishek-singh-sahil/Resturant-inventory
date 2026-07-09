@@ -3,11 +3,19 @@ import KitchenInventory from "../models/KitchenInventory.js";
 import Purchase from "../models/Purchase.js";
 import Item from "../models/Item.js";
 import { calculateFIFOCost } from "../services/dayRolloverService.js";
+import SystemSettings from "../models/SystemSettings.js";
+const getDateRange = async (dateString) => {
+  let date;
 
-const getDateRange = (dateString) => {
-  const date = dateString
-    ? new Date(dateString)
-    : new Date();
+  if (dateString) {
+    date = new Date(dateString);
+  } else {
+    const settings = await SystemSettings.findOne();
+
+    date = settings?.currentBusinessDate
+      ? new Date(settings.currentBusinessDate)
+      : new Date();
+  }
 
   date.setHours(0, 0, 0, 0);
 
@@ -22,7 +30,7 @@ const getDateRange = (dateString) => {
 
 export const getDashboardSummary = async (req, res) => {
   try {
-    const { start } = getDateRange();
+    const { start } = await getDateRange();
 
     const storeInventory =
       await StoreInventory.find({
@@ -118,7 +126,7 @@ export const getDashboardSummary = async (req, res) => {
 
 export const getStoreReport = async (req, res) => {
   try {
-    const { start } = getDateRange(req.query.date);
+    const { start } = await getDateRange(req.query.date);
 
     const report =
       await StoreInventory.find({
@@ -144,7 +152,7 @@ export const getStoreReport = async (req, res) => {
 
 export const getKitchenReport = async (req, res) => {
   try {
-    const { start } = getDateRange(req.query.date);
+    const { start } = await getDateRange(req.query.date);
 
     const report =
       await KitchenInventory.find({
@@ -171,7 +179,7 @@ export const getKitchenReport = async (req, res) => {
 export const getPurchaseReport = async (req, res) => {
   try {
     const { start, end } =
-      getDateRange(req.query.date);
+      await getDateRange(req.query.date);
 
     const purchases =
       await Purchase.find({
@@ -221,7 +229,7 @@ export const getTransferReport = async (
   res
 ) => {
   try {
-    const { start } = getDateRange(req.query.date);
+    const { start } = await getDateRange(req.query.date);
 
     const transfers =
       await StoreInventory.find({
@@ -258,7 +266,7 @@ export const getConsumptionReport = async (
   res
 ) => {
   try {
-    const { start } = getDateRange(req.query.date);
+    const { start } = await getDateRange(req.query.date);
 
     const consumptions =
       await KitchenInventory.find({
@@ -317,9 +325,7 @@ export const getPurchaseByCategory = async (
   res
 ) => {
   try {
-    const { start, end } = getDateRange(
-      req.query.date
-    );
+    const { start, end } = await getDateRange(req.query.date);
 
     const purchases =
       await Purchase.find({
@@ -390,7 +396,7 @@ export const getConsumptionByCategory = async (
   res
 ) => {
   try {
-    const { start } = getDateRange(req.query.date);
+    const { start } = await getDateRange(req.query.date);
 
     const consumptions =
       await KitchenInventory.find({

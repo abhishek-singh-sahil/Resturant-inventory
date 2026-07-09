@@ -2,31 +2,17 @@ import Item from "../models/Item.js";
 import Purchase from "../models/Purchase.js";
 import StoreInventory from "../models/StoreInventory.js";
 import KitchenInventory from "../models/KitchenInventory.js";
+import SystemSettings from "../models/SystemSettings.js";
 
-// Get current date in IST timezone (UTC+5:30)
-const getCurrentISTDate = () => {
-  const now = new Date();
-  // Add IST offset (5 hours 30 minutes = 19800000 ms)
-  const istTime = new Date(
-    now.getTime() + 5.5 * 60 * 60 * 1000
-  );
-  return new Date(
-    istTime.getFullYear(),
-    istTime.getMonth(),
-    istTime.getDate(),
-    0,
-    0,
-    0,
-    0
-  );
-};
+/* -------------------------------------------------------------------------- */
+/*                              Helper Functions                              */
+/* -------------------------------------------------------------------------- */
 
-const startOfDay = (date = null) => {
-  if (date === null) {
-    return getCurrentISTDate();
-  }
+const startOfDay = (date) => {
   const d = new Date(date);
+
   d.setHours(0, 0, 0, 0);
+
   return d;
 };
 
@@ -38,158 +24,243 @@ const addDays = (date, days) => {
   return startOfDay(d);
 };
 
-export const performDayRollover = async () => {
-  try {
-    const today = startOfDay();
+/* -------------------------------------------------------------------------- */
+/*                       Create System Settings If Missing                     */
+/* -------------------------------------------------------------------------- */
 
-    const yesterday = addDays(today, -1);
+export const initializeSystemSettings =
+  async () => {
+    let settings =
+      await SystemSettings.findOne();
 
-    const items = await Item.find({
-      isActive: true,
-    });
-
-    for (const item of items) {
-      let todayStore =
-        await StoreInventory.findOne({
-          item: item._id,
-          date: today,
+    if (!settings) {
+      settings =
+        await SystemSettings.create({
+          currentBusinessDate:
+            startOfDay(new Date()),
         });
 
-      let todayKitchen =
-        await KitchenInventory.findOne({
-          item: item._id,
-          date: today,
-        });
-
-      if (todayStore && todayKitchen) {
-        continue;
-      }
-
-      const yesterdayStore =
-        await StoreInventory.findOne({
-          item: item._id,
-          date: yesterday,
-        });
-
-      const yesterdayKitchen =
-        await KitchenInventory.findOne({
-          item: item._id,
-          date: yesterday,
-        });
-
-      if (!todayStore) {
-        todayStore =
-          await StoreInventory.create({
-            item: item._id,
-            date: today,
-            opening:
-              yesterdayStore?.closing ?? 0,
-            purchased: 0,
-            transferred: 0,
-          });
-      }
-
-      if (!todayKitchen) {
-        todayKitchen =
-          await KitchenInventory.create({
-            item: item._id,
-            date: today,
-            opening:
-              yesterdayKitchen?.closing ?? 0,
-            received: 0,
-            consumed: 0,
-          });
-      }
-
-      if (
-        yesterdayStore &&
-        !yesterdayStore.isClosed
-      ) {
-        yesterdayStore.isClosed = true;
-
-        await yesterdayStore.save();
-      }
-
-      if (
-        yesterdayKitchen &&
-        !yesterdayKitchen.isClosed
-      ) {
-        yesterdayKitchen.isClosed = true;
-
-        await yesterdayKitchen.save();
-      }
+      console.log(
+        "System Settings Initialized."
+      );
     }
 
-    console.log(
-      "Daily inventory rollover completed."
-    );
-  } catch (error) {
-    console.error(
-      "Day rollover failed:",
-      error
-    );
-  }
-};
+    return settings;
+  };
 
-// Calculate FIFO cost for consumed quantity
-export const calculateFIFOCost = async (
-  itemId,
-  consumedQuantity
+/* -------------------------------------------------------------------------- */
+/*                           Manual Day Rollover                              */
+/* -------------------------------------------------------------------------- */
+
+export const performDayRollover = async (
+  adminId
 ) => {
-  try {
-    // Get all purchases for this item in FIFO order (oldest first)
-    const purchases = await Purchase.find({
-      item: itemId,
-      isDeleted: false,
-      remainingQuantity: { $gt: 0 },
-    }).sort({ purchaseDate: 1 });
+  const settings =
+    await initializeSystemSettings();
 
-    let remaining = consumedQuantity;
-    let totalCost = 0;
-    const breakdown = [];
+  /* ------------------------- One Hour Protection ------------------------- */
 
-    for (const purchase of purchases) {
-      if (remaining <= 0) break;
+  if (settings.lastRolloverAt) {
+    const diff =
+      Date.now() -
+      settings.lastRolloverAt.getTime();
 
-      // Use as much as we can from this purchase
-      const quantityUsed = Math.min(
-        remaining,
-        purchase.remainingQuantity
+    if (diff < 60 * 60 * 1000) {
+      throw new Error(
+        "Day can only be changed once every hour."
       );
+    }
+  }
 
-      const cost = quantityUsed * purchase.rate;
-      totalCost += cost;
+  const today =
+    startOfDay(
+      settings.currentBusinessDate
+    );
 
-      breakdown.push({
-        purchase: purchase._id,
-        quantity: quantityUsed,
-        rate: purchase.rate,
-        cost: cost,
+  const tomorrow =
+    addDays(today, 1);
+
+  const items = await Item.find({
+    isActive: true,
+  });
+
+  for (const item of items) {
+    const todayStore =
+      await StoreInventory.findOne({
+        item: item._id,
+        date: today,
       });
 
-      remaining -= quantityUsed;
+    const todayKitchen =
+      await KitchenInventory.findOne({
+        item: item._id,
+        date: today,
+      });
+
+    await StoreInventory.findOneAndUpdate(
+      {
+        item: item._id,
+        date: tomorrow,
+      },
+      {
+        $setOnInsert: {
+          opening:
+            todayStore?.closing ?? 0,
+          purchased: 0,
+          transferred: 0,
+          closing:
+            todayStore?.closing ?? 0,
+          isClosed: false,
+        },
+      },
+      {
+        upsert: true,
+        new: true,
+      }
+    );
+
+    await KitchenInventory.findOneAndUpdate(
+      {
+        item: item._id,
+        date: tomorrow,
+      },
+      {
+        $setOnInsert: {
+          opening:
+            todayKitchen?.closing ?? 0,
+          received: 0,
+          consumed: 0,
+          closing:
+            todayKitchen?.closing ?? 0,
+          isClosed: false,
+        },
+      },
+      {
+        upsert: true,
+        new: true,
+      }
+    );
+
+    if (
+      todayStore &&
+      !todayStore.isClosed
+    ) {
+      todayStore.isClosed = true;
+
+      await todayStore.save();
     }
 
-    // Calculate average rate for this consumption
-    const avgRate =
-      consumedQuantity > 0
-        ? totalCost / consumedQuantity
-        : 0;
+    if (
+      todayKitchen &&
+      !todayKitchen.isClosed
+    ) {
+      todayKitchen.isClosed = true;
 
-    return {
-      rate: avgRate,
-      cost: totalCost,
-      breakdown: breakdown,
-    };
-  } catch (error) {
-    console.error(
-      "FIFO calculation error:",
-      error
-    );
-    return {
-      rate: 0,
-      cost: 0,
-      breakdown: [],
-    };
+      await todayKitchen.save();
+    }
   }
+
+  settings.currentBusinessDate =
+    tomorrow;
+
+  settings.lastRolloverAt =
+    new Date();
+
+  settings.lastRolloverBy =
+    adminId;
+
+  await settings.save();
+
+  return {
+    success: true,
+    message:
+      "Business day changed successfully.",
+    businessDate: tomorrow,
+  };
 };
+
+/* -------------------------------------------------------------------------- */
+/*                           Current Business Date                            */
+/* -------------------------------------------------------------------------- */
+
+export const getCurrentBusinessDate =
+  async () => {
+    const settings =
+      await initializeSystemSettings();
+
+    return settings.currentBusinessDate;
+  };
+
+/* -------------------------------------------------------------------------- */
+/*                           FIFO Calculation                                 */
+/* -------------------------------------------------------------------------- */
+
+export const calculateFIFOCost =
+  async (
+    itemId,
+    consumedQuantity
+  ) => {
+    try {
+      const purchases =
+        await Purchase.find({
+          item: itemId,
+          isDeleted: false,
+          remainingQuantity: {
+            $gt: 0,
+          },
+        }).sort({
+          purchaseDate: 1,
+        });
+
+      let remaining =
+        consumedQuantity;
+
+      let totalCost = 0;
+
+      const breakdown = [];
+
+      for (const purchase of purchases) {
+        if (remaining <= 0)
+          break;
+
+        const quantityUsed =
+          Math.min(
+            remaining,
+            purchase.remainingQuantity
+          );
+
+        const cost =
+          quantityUsed *
+          purchase.rate;
+
+        totalCost += cost;
+
+        breakdown.push({
+          purchase: purchase._id,
+          quantity: quantityUsed,
+          rate: purchase.rate,
+          cost,
+        });
+
+        remaining -= quantityUsed;
+      }
+
+      return {
+        rate:
+          consumedQuantity > 0
+            ? totalCost /
+              consumedQuantity
+            : 0,
+        cost: totalCost,
+        breakdown,
+      };
+    } catch (error) {
+      console.error(error);
+
+      return {
+        rate: 0,
+        cost: 0,
+        breakdown: [],
+      };
+    }
+  };

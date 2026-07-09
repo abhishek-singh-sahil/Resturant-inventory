@@ -9,10 +9,31 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 
-import { getDashboardSummary } from "../services/api";
+import DashboardHeader from "../components/dashboard/DashboardHeader";
+import BusinessDayCard from "../components/dashboard/BusinessDayCard";
+import InventoryCard from "../components/dashboard/InventoryCard";
+import ActivityCard from "../components/dashboard/ActivityCard";
+import ConfirmRolloverModal from "../components/dashboard/ConfirmRolloverModal";
+
+import {
+  getDashboardSummary,
+  rolloverBusinessDay,
+} from "../services/api";
+
+import { useBusinessDay } from "../context/BusinessDayContext";
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
+
+  const [rolling, setRolling] = useState(false);
+
+  const [modalOpen, setModalOpen] =
+    useState(false);
+const {
+  businessDate,
+  lastRolloverAt,
+  refreshBusinessDay,
+} = useBusinessDay();
 
   const [summary, setSummary] = useState({
     purchases: 0,
@@ -37,10 +58,11 @@ const Dashboard = () => {
   const loadDashboard = async () => {
     try {
       setLoading(true);
+const { data } =
+  await getDashboardSummary();
 
-      const { data } = await getDashboardSummary();
+setSummary(data.summary);
 
-      setSummary(data.summary);
     } catch (err) {
       alert(
         err.response?.data?.message ||
@@ -55,263 +77,254 @@ const Dashboard = () => {
     loadDashboard();
   }, []);
 
+  const handleNextDay =
+    async () => {
+      try {
+        setRolling(true);
+
+        await rolloverBusinessDay();
+
+await refreshBusinessDay();
+
+await loadDashboard();
+
+setModalOpen(false);
+
+        alert(
+          "Business day changed successfully."
+        );
+      } catch (err) {
+        alert(
+          err.response?.data?.message ||
+            "Unable to change business day."
+        );
+      } finally {
+        setRolling(false);
+      }
+    };
+
   return (
-    <div className="space-y-8">
+    <>
+      <ConfirmRolloverModal
+        open={modalOpen}
+        loading={rolling}
+        onClose={() =>
+          setModalOpen(false)
+        }
+        onConfirm={handleNextDay}
+      />
 
-      {/* Header */}
+      <div className="min-h-screen space-y-8 bg-[#F8FAFC] p-2">
 
-      <div>
-        <h1 className="text-3xl font-bold text-[#012A36]">
-          Dashboard
-        </h1>
+        <DashboardHeader />
 
-        <p className="mt-2 text-[#747293]">
-          Today's Restaurant Inventory Overview
-        </p>
-      </div>
+        <div className="grid gap-6 xl:grid-cols-3">
 
-      {/* Store Inventory */}
+          <div className="xl:col-span-2">
 
-      <div>
-
-        <div className="mb-5 flex items-center gap-3">
-
-          <Warehouse
-            size={28}
-            className="text-[#012A36]"
-          />
-
-          <h2 className="text-2xl font-bold text-[#012A36]">
-            Store Inventory
-          </h2>
-
-        </div>
-
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-
-          <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-
-            <Package
-              size={30}
-              className="text-[#012A36]"
+            <BusinessDayCard
+              businessDate={businessDate}
+              lastRolloverAt={
+                lastRolloverAt
+              }
+              loading={loading}
+              rolling={rolling}
+              onNextDay={() =>
+                setModalOpen(true)
+              }
             />
-
-            <p className="mt-4 text-sm text-[#747293]">
-              Opening Stock
-            </p>
-
-            <h3 className="mt-2 text-3xl font-bold text-[#012A36]">
-              {loading ? "--" : summary.store.opening}
-            </h3>
 
           </div>
 
           <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
 
-            <ShoppingCart
-              size={30}
-              className="text-green-600"
-            />
+            <h2 className="text-xl font-bold text-[#012A36]">
+              Today's Activity
+            </h2>
 
-            <p className="mt-4 text-sm text-[#747293]">
-              Purchased
-            </p>
+            <div className="mt-6 space-y-5">
 
-            <h3 className="mt-2 text-3xl font-bold text-green-600">
-              {loading ? "--" : summary.store.purchased}
-            </h3>
+              <ActivityCard
+                title="Purchases"
+                value={
+                  summary.purchases
+                }
+                loading={loading}
+                icon={ShoppingCart}
+                color="text-green-600"
+                bgColor="bg-green-100"
+              />
 
-          </div>
+              <ActivityCard
+                title="Transfers"
+                value={
+                  summary.transfers
+                }
+                loading={loading}
+                icon={
+                  ArrowRightLeft
+                }
+                color="text-orange-600"
+                bgColor="bg-orange-100"
+              />
 
-          <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+              <ActivityCard
+                title="Consumptions"
+                value={
+                  summary.consumptions
+                }
+                loading={loading}
+                icon={ChefHat}
+                color="text-red-600"
+                bgColor="bg-red-100"
+              />
 
-            <ArrowRightLeft
-              size={30}
-              className="text-orange-600"
-            />
-
-            <p className="mt-4 text-sm text-[#747293]">
-              Transferred
-            </p>
-
-            <h3 className="mt-2 text-3xl font-bold text-orange-600">
-              {loading ? "--" : summary.store.transferred}
-            </h3>
-
-          </div>
-
-          <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-
-            <Package
-              size={30}
-              className="text-[#012A36]"
-            />
-
-            <p className="mt-4 text-sm text-[#747293]">
-              Closing Stock
-            </p>
-
-            <h3 className="mt-2 text-3xl font-bold text-[#012A36]">
-              {loading ? "--" : summary.store.closing}
-            </h3>
+            </div>
 
           </div>
 
         </div>
 
-      </div>
+        {/* Store Inventory */}
 
-      {/* Kitchen Inventory */}
+        <div>
 
-      <div>
+          <div className="mb-6 flex items-center gap-3">
 
-        <div className="mb-5 flex items-center gap-3">
-
-          <UtensilsCrossed
-            size={28}
-            className="text-[#012A36]"
-          />
-
-          <h2 className="text-2xl font-bold text-[#012A36]">
-            Kitchen Inventory
-          </h2>
-
-        </div>
-
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-
-          <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-
-            <ChefHat
-              size={30}
+            <Warehouse
               className="text-[#012A36]"
+              size={30}
             />
 
-            <p className="mt-4 text-sm text-[#747293]">
-              Opening Stock
-            </p>
+            <h2 className="text-2xl font-bold text-[#012A36]">
 
-            <h3 className="mt-2 text-3xl font-bold text-[#012A36]">
-              {loading ? "--" : summary.kitchen.opening}
-            </h3>
+              Store Inventory
+
+            </h2>
 
           </div>
 
-          <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
 
-            <ArrowRightLeft
-              size={30}
-              className="text-green-600"
+            <InventoryCard
+              title="Opening Stock"
+              value={
+                summary.store.opening
+              }
+              loading={loading}
+              icon={Package}
+              iconBg="bg-blue-100"
+              iconColor="text-blue-600"
             />
 
-            <p className="mt-4 text-sm text-[#747293]">
-              Received
-            </p>
-
-            <h3 className="mt-2 text-3xl font-bold text-green-600">
-              {loading ? "--" : summary.kitchen.received}
-            </h3>
-
-          </div>
-
-          <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-
-            <ShoppingCart
-              size={30}
-              className="text-orange-600"
+            <InventoryCard
+              title="Purchased"
+              value={
+                summary.store.purchased
+              }
+              loading={loading}
+              icon={ShoppingCart}
+              iconBg="bg-green-100"
+              iconColor="text-green-600"
+              valueColor="text-green-600"
             />
 
-            <p className="mt-4 text-sm text-[#747293]">
-              Consumed
-            </p>
-
-            <h3 className="mt-2 text-3xl font-bold text-orange-600">
-              {loading ? "--" : summary.kitchen.consumed}
-            </h3>
-
-          </div>
-
-          <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-
-            <Package
-              size={30}
-              className="text-[#012A36]"
+            <InventoryCard
+              title="Transferred"
+              value={
+                summary.store.transferred
+              }
+              loading={loading}
+              icon={
+                ArrowRightLeft
+              }
+              iconBg="bg-orange-100"
+              iconColor="text-orange-600"
+              valueColor="text-orange-600"
             />
 
-            <p className="mt-4 text-sm text-[#747293]">
-              Closing Stock
-            </p>
-
-            <h3 className="mt-2 text-3xl font-bold text-[#012A36]">
-              {loading ? "--" : summary.kitchen.closing}
-            </h3>
+            <InventoryCard
+              title="Closing Stock"
+              value={
+                summary.store.closing
+              }
+              loading={loading}
+              icon={Package}
+              iconBg="bg-purple-100"
+              iconColor="text-purple-600"
+              valueColor="text-purple-600"
+            />
 
           </div>
 
         </div>
+                {/* Kitchen Inventory */}
 
-      </div>
+        <div>
 
-      {/* Today's Activity */}
+          <div className="mb-6 flex items-center gap-3">
 
-      <div>
-
-        <div className="mb-5">
-          <h2 className="text-2xl font-bold text-[#012A36]">
-            Today's Activity
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-
-          <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-
-            <ShoppingCart
-              size={32}
+            <UtensilsCrossed
               className="text-[#012A36]"
+              size={30}
             />
 
-            <p className="mt-4 text-sm text-[#747293]">
-              Purchases
-            </p>
-
-            <h3 className="mt-2 text-4xl font-bold text-[#012A36]">
-              {loading ? "--" : summary.purchases}
-            </h3>
+            <h2 className="text-2xl font-bold text-[#012A36]">
+              Kitchen Inventory
+            </h2>
 
           </div>
 
-          <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
 
-            <ArrowRightLeft
-              size={32}
-              className="text-[#012A36]"
+            <InventoryCard
+              title="Opening Stock"
+              value={
+                summary.kitchen.opening
+              }
+              loading={loading}
+              icon={ChefHat}
+              iconBg="bg-blue-100"
+              iconColor="text-blue-600"
             />
 
-            <p className="mt-4 text-sm text-[#747293]">
-              Transfers
-            </p>
-
-            <h3 className="mt-2 text-4xl font-bold text-[#012A36]">
-              {loading ? "--" : summary.transfers}
-            </h3>
-
-          </div>
-
-          <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-
-            <ChefHat
-              size={32}
-              className="text-[#012A36]"
+            <InventoryCard
+              title="Received"
+              value={
+                summary.kitchen.received
+              }
+              loading={loading}
+              icon={
+                ArrowRightLeft
+              }
+              iconBg="bg-green-100"
+              iconColor="text-green-600"
+              valueColor="text-green-600"
             />
 
-            <p className="mt-4 text-sm text-[#747293]">
-              Consumptions
-            </p>
+            <InventoryCard
+              title="Consumed"
+              value={
+                summary.kitchen.consumed
+              }
+              loading={loading}
+              icon={ShoppingCart}
+              iconBg="bg-orange-100"
+              iconColor="text-orange-600"
+              valueColor="text-orange-600"
+            />
 
-            <h3 className="mt-2 text-4xl font-bold text-[#012A36]">
-              {loading ? "--" : summary.consumptions}
-            </h3>
+            <InventoryCard
+              title="Closing Stock"
+              value={
+                summary.kitchen.closing
+              }
+              loading={loading}
+              icon={Package}
+              iconBg="bg-purple-100"
+              iconColor="text-purple-600"
+              valueColor="text-purple-600"
+            />
 
           </div>
 
@@ -319,7 +332,7 @@ const Dashboard = () => {
 
       </div>
 
-    </div>
+    </>
   );
 };
 

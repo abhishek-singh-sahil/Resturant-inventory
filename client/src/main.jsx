@@ -5,10 +5,14 @@ import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import App from "./App";
 
+import { BusinessDayProvider } from "./context/BusinessDayContext";
+
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <BusinessDayProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </BusinessDayProvider>
   </StrictMode>
 );

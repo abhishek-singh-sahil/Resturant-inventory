@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-
+import { toBusinessDateString } from "../utils/date";
+import { useBusinessDay } from "../context/BusinessDayContext";
+import {
+  getCurrentBusinessDay,
+} from "../services/api";
 import {
   Warehouse,
   ChefHat,
@@ -65,11 +69,9 @@ const Reports = () => {
     useState([]);
 
   const [selectedDate, setSelectedDate] =
-    useState(
-      new Date()
-        .toISOString()
-        .split("T")[0]
-    );
+  useState("");
+  const { businessDate } =
+  useBusinessDay();
 
   const [showByCategory, setShowByCategory] =
     useState(false);
@@ -77,6 +79,7 @@ const Reports = () => {
   /* ==========================================
                 LOAD REPORT
   ========================================== */
+
 
   const loadReport = async () => {
     try {
@@ -174,9 +177,25 @@ const Reports = () => {
     }
   };
 
-  useEffect(() => {
+
+useEffect(() => {
+  if (businessDate) {
+    console.log("Business Date Context:", businessDate);
+    setSelectedDate(
+  toBusinessDateString(businessDate)
+);
+  }
+}, [businessDate]);
+
+useEffect(() => {
+  if (selectedDate) {
     loadReport();
-  }, [activeTab, selectedDate, showByCategory]);
+  }
+}, [
+  activeTab,
+  selectedDate,
+  showByCategory,
+]);
 
   /* ==========================================
                 FILTERED DATA

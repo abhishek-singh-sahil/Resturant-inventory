@@ -1,18 +1,18 @@
 import KitchenInventory from "../models/KitchenInventory.js";
 import Consumption from "../models/Consumption.js";
 import Purchase from "../models/Purchase.js";
-const getToday = () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-};
+import { getBusinessDate } from "../utils/businessDate.js";
+
+/* -------------------------------------------------------------------------- */
+/*                            GET KITCHEN ITEMS                               */
+/* -------------------------------------------------------------------------- */
 
 export const getKitchenItems = async (req, res) => {
   try {
-    const today = getToday();
+    const businessDate = await getBusinessDate();
 
     const inventory = await KitchenInventory.find({
-      date: today,
+      date: businessDate,
     })
       .populate("item", "name unit isActive")
       .sort({
@@ -44,12 +44,21 @@ export const getKitchenItems = async (req, res) => {
   }
 };
 
-export const updateKitchenClosing = async (req, res) => {
+/* -------------------------------------------------------------------------- */
+/*                        UPDATE KITCHEN CLOSING                              */
+/* -------------------------------------------------------------------------- */
+
+export const updateKitchenClosing = async (
+  req,
+  res
+) => {
   try {
     const { closing } = req.body;
+
     const itemId = req.params.id;
 
-    const today = getToday();
+    const businessDate =
+      await getBusinessDate();
 
     if (
       closing === undefined ||
@@ -58,20 +67,22 @@ export const updateKitchenClosing = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid closing value.",
+        message:
+          "Invalid closing value.",
       });
     }
 
     const kitchenInventory =
       await KitchenInventory.findOne({
         item: itemId,
-        date: today,
+        date: businessDate,
       });
 
     if (!kitchenInventory) {
       return res.status(404).json({
         success: false,
-        message: "Kitchen inventory not found.",
+        message:
+          "Kitchen inventory not found.",
       });
     }
 
@@ -87,18 +98,21 @@ export const updateKitchenClosing = async (req, res) => {
       });
     }
 
-    // Calculate consumed = (opening + received) - closing
-    const consumed = available - closing;
+    const consumed =
+      available - closing;
 
-    kitchenInventory.closing = closing;
-    kitchenInventory.consumed = consumed;
+    kitchenInventory.closing =
+      closing;
+
+    kitchenInventory.consumed =
+      consumed;
 
     await kitchenInventory.save();
 
     res.status(200).json({
       success: true,
       message:
-        "Closing weight updated successfully. Consumption calculated automatically.",
+        "Closing weight updated successfully.",
       inventory: kitchenInventory,
     });
   } catch (error) {
